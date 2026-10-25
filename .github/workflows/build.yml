@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Baixar código
+      - name: Baixar codigo
         uses: actions/checkout@v4
 
       - name: Configurar Java 17
@@ -22,111 +22,31 @@ jobs:
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Montar Estrutura do Projeto Android Automaticamente
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4'
+
+      - name: Montar Estrutura do Projeto
         run: |
           mkdir -p app/src/main/java/com/enrico/flacplayer
-          mv MainActivity.kt app/src/main/java/com/enrico/flacplayer/MainActivity.kt
+          cp MainActivity.kt app/src/main/java/com/enrico/flacplayer/MainActivity.kt
 
-          cat << 'EOF' > settings.gradle
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = "MeuPlayerFlac"
-          include ':app'
-          EOF
+          printf 'pluginManagement {\n  repositories {\n    google()\n    mavenCentral()\n    gradlePluginPortal()\n  }\n}\ndependencyResolutionManagement {\n  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)\n  repositories {\n    google()\n    mavenCentral()\n  }\n}\nrootProject.name = "MeuPlayerFlac"\ninclude(":app")\n' > settings.gradle
 
-          cat << 'EOF' > build.gradle
-          plugins {
-              id 'com.android.application' version '8.2.0' apply false
-              id 'org.jetbrains.kotlin.android' version '1.9.22' apply false
-          }
-          EOF
+          printf 'plugins {\n  id("com.android.application") version "8.2.0" apply false\n  id("org.jetbrains.kotlin.android") version "1.9.22" apply false\n}\n' > build.gradle
 
-          cat << 'EOF' > gradle.properties
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          kotlin.code.style=official
-          android.nonTransitiveRClass=true
-          EOF
+          printf 'org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8\nandroid.useAndroidX=true\nkotlin.code.style=official\nandroid.nonTransitiveRClass=true\n' > gradle.properties
 
-          cat << 'EOF' > app/build.gradle
-          plugins {
-              id 'com.android.application'
-              id 'org.jetbrains.kotlin.android'
-          }
-          android {
-              namespace 'com.enrico.flacplayer'
-              compileSdk 34
-              defaultConfig {
-                  applicationId "com.enrico.flacplayer"
-                  minSdk 26
-                  targetSdk 34
-                  versionCode 1
-                  versionName "1.0"
-              }
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-              kotlinOptions {
-                  jvmTarget = '17'
-              }
-              buildFeatures {
-                  compose true
-              }
-              composeOptions {
-                  kotlinCompilerExtensionVersion '1.5.8'
-              }
-          }
-          dependencies {
-              implementation platform('androidx.compose:compose-bom:2024.02.00')
-              implementation 'androidx.compose.ui:ui'
-              implementation 'androidx.compose.material3:material3'
-              implementation 'androidx.activity:activity-compose:1.8.2'
-              implementation 'androidx.media3:media3-exoplayer:1.2.1'
-              implementation 'androidx.media3:media3-common:1.2.1'
-          }
-          EOF
+          printf 'plugins {\n  id("com.android.application")\n  id("org.jetbrains.kotlin.android")\n}\nandroid {\n  namespace = "com.enrico.flacplayer"\n  compileSdk = 34\n  defaultConfig {\n    applicationId = "com.enrico.flacplayer"\n    minSdk = 26\n    targetSdk = 34\n    versionCode = 1\n    versionName = "1.0"\n  }\n  compileOptions {\n    sourceCompatibility = JavaVersion.VERSION_17\n    targetCompatibility = JavaVersion.VERSION_17\n  }\n  kotlinOptions {\n    jvmTarget = "17"\n  }\n  buildFeatures {\n    compose = true\n  }\n  composeOptions {\n    kotlinCompilerExtensionVersion = "1.5.8"\n  }\n}\ndependencies {\n  implementation(platform("androidx.compose:compose-bom:2024.02.00"))\n  implementation("androidx.compose.ui:ui")\n  implementation("androidx.compose.material3:material3")\n  implementation("androidx.activity:activity-compose:1.8.2")\n  implementation("androidx.media3:media3-exoplayer:1.2.1")\n  implementation("androidx.media3:media3-common:1.2.1")\n}\n' > app/build.gradle
 
-          cat << 'EOF' > app/src/main/AndroidManifest.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-              <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-              <application
-                  android:label="Enrico FLAC"
-                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />\n  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />\n  <application android:label="Enrico FLAC" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">\n    <activity android:name=".MainActivity" android:exported="true">\n      <intent-filter>\n        <action android:name="android.intent.action.MAIN" />\n        <category android:name="android.intent.category.LAUNCHER" />\n      </intent-filter>\n    </activity>\n  </application>\n</manifest>\n' > app/src/main/AndroidManifest.xml
 
-      - name: Instalar Gradle e Compilar APK
-        run: |
-          gradle wrapper --gradle-version 8.4
-          ./gradlew assembleDebug
+      - name: Compilar APK
+        run: gradle assembleDebug
 
       - name: Disponibilizar APK para Download
         uses: actions/upload-artifact@v4
         with:
           name: Enrico-FLAC-Player-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-          
