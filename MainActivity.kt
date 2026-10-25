@@ -29,27 +29,33 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.MediaSession
 import kotlinx.coroutines.delay
 import java.io.File
 
 class MainActivity : ComponentActivity() {
     private lateinit var player: ExoPlayer
+    private var mediaSession: MediaSession? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Motor de Áudio Hi-Fi (Media3 ExoPlayer) configurado para música pura
+        // Motor de Áudio Hi-Fi (Media3 ExoPlayer)
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
 
         player = ExoPlayer.Builder(this)
-            .setAudioAttributes(audioAttributes, true) // Pausa se tirar o fone Bluetooth
+            .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
             .build()
+
+        // PONTE BLUETOOTH: Conecta o Player aos comandos do Galaxy Buds 2 Pro e Tela de Bloqueio
+        mediaSession = MediaSession.Builder(this, player).build()
 
         setContent {
             MaterialTheme(
@@ -67,8 +73,12 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        mediaSession?.run {
+            player.release()
+            release()
+            mediaSession = null
+        }
         super.onDestroy()
-        player.release()
     }
 }
 
@@ -103,7 +113,6 @@ fun FlacFolderPlayerScreen(activity: ComponentActivity, player: ExoPlayer) {
         if (!hasPermission) launcher.launch(permission)
     }
 
-    // Atualiza lista de pastas e arquivos de áudio (.flac, .mp3, .wav, .ogg, .m4a)
     LaunchedEffect(currentDir, hasPermission) {
         if (hasPermission) {
             val files = currentDir.listFiles()?.filter { file ->
@@ -113,7 +122,6 @@ fun FlacFolderPlayerScreen(activity: ComponentActivity, player: ExoPlayer) {
         }
     }
 
-    // Monitora o progresso da música em tempo real
     LaunchedEffect(isPlaying) {
         while (isPlaying) {
             duration = player.duration.coerceAtLeast(1L)
@@ -137,12 +145,10 @@ fun FlacFolderPlayerScreen(activity: ComponentActivity, player: ExoPlayer) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        // Cabeçalho estilo Poweramp
         Text("FLAC Folder Player", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF00E5FF))
         Text("Pasta: ${currentDir.absolutePath}", fontSize = 12.sp, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Botão para voltar uma pasta acima
         if (currentDir.absolutePath != rootDir.absolutePath && currentDir.parentFile != null) {
             Button(
                 onClick = { currentDir.parentFile?.let { currentDir = it } },
@@ -156,7 +162,6 @@ fun FlacFolderPlayerScreen(activity: ComponentActivity, player: ExoPlayer) {
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // Lista de Pastas e Músicas
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(fileList) { file ->
                 Row(
@@ -166,22 +171,20 @@ fun FlacFolderPlayerScreen(activity: ComponentActivity, player: ExoPlayer) {
                             if (file.isDirectory) {
                                 currentDir = file
                             } else {
-                                // Carrega todas as músicas da pasta na fila (Gapless Playback)
                                 val audioFiles = fileList.filter { !it.isDirectory }
                                 val startIndex = audioFiles.indexOf(file).coerceAtLeast(0)
-                                player.clearMediaItems()
-                                audioFiles.forEach { audio ->
-                                    val item = MediaItem.Builder()
+                                val mediaItems = audioFiles.map { audio ->
+                                    MediaItem.Builder()
                                         .setUri(Uri.fromFile(audio))
                                         .setMediaMetadata(
-                                            androidx.media3.common.MediaMetadata.Builder()
+                                            MediaMetadata.Builder()
                                                 .setTitle(audio.nameWithoutExtension)
+                                                .setArtist(currentDir.name) // Mostra o nome da pasta como Artista/Álbum
                                                 .build()
                                         )
                                         .build()
-                                    player.addMediaItem(item)
                                 }
-                                player.seekTo(startIndex, 0L)
+                                player.setMediaItems(mediaItems, startIndex, 0L)
                                 player.prepare()
                                 player.play()
                                 currentTrackName = file.nameWithoutExtension
@@ -207,7 +210,6 @@ fun FlacFolderPlayerScreen(activity: ComponentActivity, player: ExoPlayer) {
             }
         }
 
-        // Painel de Controle Inferior (Mini-Poweramp)
         Card(
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
@@ -229,7 +231,7 @@ fun FlacFolderPlayerScreen(activity: ComponentActivity, player: ExoPlayer) {
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { player.seekToPrevious() }) {
+                    IconButton(onClick = { player.seekToPreviousMediaItem() }) {
                         Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Anterior", tint = Color.White, modifier = Modifier.size(36.dp))
                     }
                     FloatingActionButton(
@@ -242,7 +244,7 @@ fun FlacFolderPlayerScreen(activity: ComponentActivity, player: ExoPlayer) {
                             tint = Color.Black
                         )
                     }
-                    IconButton(onClick = { player.seekToNext() }) {
+                    IconButton(onClick = { player.seekToNextMediaItem() }) {
                         Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Próxima", tint = Color.White, modifier = Modifier.size(36.dp))
                     }
                 }
